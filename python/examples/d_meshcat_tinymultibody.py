@@ -87,8 +87,8 @@ is_floating = True
 laikago_mb = dp.TinyMultiBody(is_floating)
 
 res = urdf2mb.convert2(med0.urdf_structs, world, laikago_mb)
-laikago_mb.set_base_position(dp.Vector3(3., 2., 0.7))
-laikago_mb.set_base_orientation(dp.Quaternion(0.8042817254804792, 0.08692563458095628, -0.12155529396079404, 0.5751514153863713))#0.2474039592545229, 0.0, 0.0, 0.9689124217106448))
+laikago_mb.set_position(dp.Vector3(3., 2., 0.7))
+laikago_mb.set_orientation(dp.Quaternion(0.8042817254804792, 0.08692563458095628, -0.12155529396079404, 0.5751514153863713))#0.2474039592545229, 0.0, 0.0, 0.9689124217106448))
 mb_solver = dp.TinyMultiBodyConstraintSolver()
 
 q = dp.VectorX(2)

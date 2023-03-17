@@ -27,7 +27,10 @@
 bool is_floating = true;
 
 //std::string LAIKAGO_URDF_NAME="laikago/laikago_toes_zup_chassis_collision.urdf";
-std::string LAIKAGO_URDF_NAME="laikago/laikago_toes_zup.urdf";
+//std::string LAIKAGO_URDF_NAME = "laikago/laikago_toes_zup.urdf";
+// std::string LAIKAGO_URDF_NAME = "humanoid.urdf";
+//std::string LAIKAGO_URDF_NAME = "Daniel_data/humanoid_bullet.urdf";
+std::string LAIKAGO_URDF_NAME = "Daniel_data/humanoid_visual.urdf";
 
 //#include "meshcat_urdf_visualizer.h"
 #include "opengl_urdf_visualizer.h"
@@ -122,15 +125,18 @@ struct LaikagoSimulation {
     }
     int output_dim() const { return num_timesteps * state_dim(); }
 
+    // 1 - Define Laikago simulation
     LaikagoSimulation() {
+        // define plane
         std::string plane_filename;
         tds::FileUtils::find_file("plane_implicit.urdf", plane_filename);
         cache.construct(plane_filename, world, false, false);
+
+        // define Laikago
         tds::FileUtils::find_file(LAIKAGO_URDF_NAME, m_urdf_filename);
-        
         system = cache.construct(m_urdf_filename, world, false, is_floating);
         system->base_X_world().translation = Vector3(start_pos[0],start_pos[1],start_pos[2]);//Algebra::unit3_z();
-        //world.set_gravity(Algebra::Vector3(Algebra::zero(), Algebra::zero(), Algebra::zero()));
+        world.set_gravity( Algebra::Vector3(Algebra::zero(), Algebra::zero(), Algebra::zero()));  // DANIEL was at 0,0,0 
     }
 
     std::vector<Scalar> operator()(const std::vector<Scalar>& v) {
@@ -149,6 +155,7 @@ struct LaikagoSimulation {
 #if 1
             // pd control
             if (1) {
+                // DANIEL - TORQUE ? 
                 // use PD controller to compute tau
                 int qd_offset = system->is_floating() ? 6 : 0;
                 int q_offset = system->is_floating() ? 7 : 0;
@@ -188,15 +195,16 @@ struct LaikagoSimulation {
                 }
             }
 #endif
+            // 2 - do forward dynamics with TDS
             tds::forward_dynamics(*system, world.get_gravity());
             system->clear_forces();
-
+            // 3- Integrate Euler
             integrate_euler_qdd(*system, dt);
-
+            // 4 - do the step
             world.step(dt);
-
+            // 5 - Integrate Euler (again)
             tds::integrate_euler(*system, dt);
-
+            // 6
             //copy q, qd, link world poses (for rendering) to output
             int j = 0;
             for (int i = 0; i < system->dof(); ++i, ++j) {
@@ -221,7 +229,7 @@ struct LaikagoSimulation {
                 else
                 {
                     //check if we have links without visuals
-                    assert(0);
+                    //assert(0); Daniel - what if we dont have visuals ?
                     j += 7;
                 }
             }
@@ -243,6 +251,7 @@ int main(int argc, char* argv[]) {
   visualizer.delete_all();
 
   LaikagoSimulation<MyAlgebra> contact_sim;
+  // show all the links
   for (int l=0;l<  contact_sim.system->num_links();l++)
   {
       printf("link %d = %s\n", l, contact_sim.system->links()[l].link_name.c_str());
@@ -255,12 +264,13 @@ int main(int argc, char* argv[]) {
   prep_inputs.resize(input_dim);
   //quaternion 'w' = 1
   prep_inputs[3] = 1;
-  //start height at 0.7
-  prep_inputs[6] = 0.7;
+  //start height at 0.7 
+  prep_inputs[6] = 1.7; // Daniel put it higher ?
 
+  //Daniel - why was this commented ?
   //int sphere_shape = visualizer.m_opengl_app.register_graphics_unit_sphere_shape(SPHERE_LOD_LOW);
   
-
+  //Daniel - place the plane
   {
       std::vector<int> shape_ids;
       std::string plane_filename;
@@ -271,19 +281,19 @@ int main(int argc, char* argv[]) {
       visualizer.load_obj(plane_filename, pos, orn, scaling, shape_ids);
   }
 
-
+  //Daniel - why have comments here ?
   //int sphere_shape = shape_ids[0];
   //TinyVector3f color = colors[0];
-  // typedef tds::Conversion<DiffAlgebra, tds::TinyAlgebraf> Conversion;
+   //typedef tds::Conversion<DiffAlgebra, tds::TinyAlgebraf> Conversion;
   
   bool create_instances = false;
   char search_path[TINY_MAX_EXE_PATH_LEN];
   std::string texture_path = "";
   std::string file_and_path;
+  // why do it here when we do it in the Laikago constructor too ?
   tds::FileUtils::find_file(LAIKAGO_URDF_NAME, file_and_path);
   auto urdf_structures = contact_sim.cache.retrieve(file_and_path);// contact_sim.m_urdf_filename);
-  FileUtils::extract_path(file_and_path.c_str(), search_path,
-      TINY_MAX_EXE_PATH_LEN);
+  FileUtils::extract_path(file_and_path.c_str(), search_path, TINY_MAX_EXE_PATH_LEN);
   visualizer.m_path_prefix = search_path;
   visualizer.convert_visuals(urdf_structures, texture_path);
   
@@ -302,22 +312,22 @@ int main(int argc, char* argv[]) {
       OpenGLUrdfVisualizer<MyAlgebra>::TinyVisualLinkInfo& vis_link = visualizer.m_b2vis[uid];
       int instance = -1;
       int num_instances_per_link = 0;
+      //Daniel - Render visual links
       for (int v = 0; v < vis_link.visual_shape_uids.size(); v++)
       {
           int sphere_shape = vis_link.visual_shape_uids[v];
           ::TINY::TinyVector3f color(1, 1, 1);
           //visualizer.m_b2vis
-          instance = visualizer.m_opengl_app.m_renderer->register_graphics_instance(
-              sphere_shape, pos, orn, color, scaling);
+          instance = visualizer.m_opengl_app.m_renderer->register_graphics_instance(sphere_shape, pos, orn, color, scaling);
           visual_instances.push_back(instance);
           num_instances_per_link++;
           contact_sim.system->visual_instance_uids().push_back(instance);
       }
       num_base_instances = num_instances_per_link;
-
+       //Daniel - Render contact sim links
       for (int i = 0; i < contact_sim.system->num_links(); ++i) {
-         
-
+          //skip the ones with no visual shapes
+          if (urdf_structures.links[i].urdf_visual_shapes.empty()) continue;
           int uid = urdf_structures.links[i].urdf_visual_shapes[0].visual_shape_uid;
           OpenGLUrdfVisualizer<MyAlgebra>::TinyVisualLinkInfo& vis_link = visualizer.m_b2vis[uid];
           int instance = -1;
@@ -327,8 +337,7 @@ int main(int argc, char* argv[]) {
               int sphere_shape = vis_link.visual_shape_uids[v];
               ::TINY::TinyVector3f color(1, 1, 1);
               //visualizer.m_b2vis
-              instance = visualizer.m_opengl_app.m_renderer->register_graphics_instance(
-                  sphere_shape, pos, orn, color, scaling);
+              instance = visualizer.m_opengl_app.m_renderer->register_graphics_instance(sphere_shape, pos, orn, color, scaling);
               visual_instances.push_back(instance);
               num_instances_per_link++;
 
@@ -342,13 +351,12 @@ int main(int argc, char* argv[]) {
 
   
 
-  std::vector<std::vector<MyScalar>> parallel_outputs(
-      num_total_threads, std::vector<MyScalar>(contact_sim.output_dim()));
+  std::vector<std::vector<MyScalar>> parallel_outputs(num_total_threads, std::vector<MyScalar>(contact_sim.output_dim()));
 
   std::vector<std::vector<MyScalar>> parallel_inputs(num_total_threads);
 
   
-  
+  //Daniel - Hardcoded values ??
   for (int i = 0; i < num_total_threads; ++i) {
       //auto quat = MyAlgebra::quat_from_euler_rpy(MyAlgebra::Vector3(0.5,1.3,i*0.3));
       auto quat = MyAlgebra::quat_from_euler_rpy(MyAlgebra::Vector3(0,0,i*0.3));
@@ -392,7 +400,7 @@ int main(int argc, char* argv[]) {
       }
       
   }
-  
+  //DANIEL - why hardcoded ?
   // body indices of feet
   const int foot_fr = 3;// 2;
   const int foot_fl = 7;// 5;
@@ -402,7 +410,7 @@ int main(int argc, char* argv[]) {
 
   auto robot_mb_ = contact_sim.system;
   
-
+  // ================== INVERSE KINEMATICS ===================================================
   ::TINY::TinyInverseKinematics<MyAlgebra, ::TINY::IK_JAC_PINV> inverse_kinematics;
   // controls by how much the joint angles should be close to the initial q
   inverse_kinematics.weight_reference = 0;
@@ -410,19 +418,15 @@ int main(int argc, char* argv[]) {
   inverse_kinematics.alpha = 0.3;
   
   ::tds::forward_kinematics<MyAlgebra>(*contact_sim.system);
-
-  inverse_kinematics.targets.emplace_back(foot_fr,  
-      contact_sim.system->links()[foot_fr].X_world.translation);
-  inverse_kinematics.targets.emplace_back(foot_fl, 
-      contact_sim.system->links()[foot_fl].X_world.translation);
-  inverse_kinematics.targets.emplace_back(foot_br, 
-      contact_sim.system->links()[foot_br].X_world.translation);
-  inverse_kinematics.targets.emplace_back(foot_bl, 
-      contact_sim.system->links()[foot_bl].X_world.translation);
+  // Daniel - for a humanoid we only have 2 foot placements and 2 hands ? four foots placements
+  inverse_kinematics.targets.emplace_back(foot_fr, contact_sim.system->links()[foot_fr].X_world.translation);
+  inverse_kinematics.targets.emplace_back(foot_fl, contact_sim.system->links()[foot_fl].X_world.translation);
+  inverse_kinematics.targets.emplace_back(foot_br, contact_sim.system->links()[foot_br].X_world.translation);
+  inverse_kinematics.targets.emplace_back(foot_bl, contact_sim.system->links()[foot_bl].X_world.translation);
   inverse_kinematics.q_reference = contact_sim.system->q();
   MyAlgebra::VectorX q_desired = contact_sim.system->q();
     
-
+  //Daniel - why is this commented ?
   //inverse_kinematics.compute(*contact_sim.system, q_desired);
 
   std::vector<MyScalar> vec_x_init(4);
@@ -528,6 +532,7 @@ int main(int argc, char* argv[]) {
                       }
                       
                       for (int l = 0; l < contact_sim.system->links_.size(); l++) {
+                          if (l >= num_instances.size()) continue;
                           for (int v = 0; v < num_instances[l]; v++)
                           {
                               int visual_instance_id = visual_instances[instance_index++];

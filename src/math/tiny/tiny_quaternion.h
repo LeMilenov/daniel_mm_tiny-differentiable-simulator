@@ -36,9 +36,8 @@ namespace TINY
             : m_x(x), m_y(y), m_z(z), m_w(w) {
             if (x == TinyConstants::zero() && y == TinyConstants::zero() &&
                 z == TinyConstants::zero() && w == TinyConstants::zero()) {
-                fprintf(stderr,
-                    "Error: cannot construct a quaternion with x = y = z = w = 0.");
-                assert(0);
+                fprintf(stderr,"Error: cannot construct a quaternion with x = y = z = w = 0.");
+                //assert(0); // why not construct a quaternion with this ?
             }
         }
 

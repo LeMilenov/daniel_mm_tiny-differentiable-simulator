@@ -208,7 +208,7 @@ is_floating=True
 mb = dp.TinyMultiBody(is_floating)
 urdf2mb = dp.UrdfToMultiBody2()
 res = urdf2mb.convert2(urdf_data, world, mb)
-mb.set_base_position(dp.Vector3(0,0,0.6))
+mb.set_position(dp.Vector3(0,0,0.6))
 
 mb.set_base_orientation(dp.Quaternion(0.0, 0.0, 0.706825181105366, 0.7073882691671998))
 

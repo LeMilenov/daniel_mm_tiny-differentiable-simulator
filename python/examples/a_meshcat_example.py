@@ -40,16 +40,15 @@ p0.setAdditionalSearchPath(pd.getDataPath())
 flags = p0.URDF_MAINTAIN_LINK_ORDER
 laikago = p0.loadURDF("plane_implicit.urdf", flags=flags)
 start_pos = [0,0,0.6]
-laikago = p0.loadURDF("laikago/laikago_toes_zup.urdf", start_pos, flags=flags)
+# laikago = p0.loadURDF("laikago/laikago_toes_zup.urdf", start_pos, flags=flags)
+laikago = p0.loadURDF("Daniel_data/humanoid_visual.urdf", start_pos, flags=flags)
 p0.configureDebugVisualizer(p0.COV_ENABLE_RENDERING,1)
 
 med0 = ued.UrdfEditor()
 med0.initializeFromBulletBody(laikago, p0._client)
 
-texture_path = os.path.join(pd.getDataPath(),
-                            'laikago/laikago_tex.jpg')
+texture_path = os.path.join(pd.getDataPath(),'laikago/laikago_tex.jpg')
 b2vis = meshcat_utils_pb.convert_visuals_pb(vis,med0.urdfLinks, med0.urdfJoints, p0, texture_path)
-
 
 p0.setGravity(0,0,-10)
 while p0.isConnected():

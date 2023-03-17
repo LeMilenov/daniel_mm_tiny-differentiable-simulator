@@ -53,12 +53,13 @@ def convert_visuals_pb(vis, urdfLinks, urdfJoints, p0, texture_path):
           b2v.inertia_rpy = link.urdf_inertial.origin_rpy
           
 
-          vis[vis_name].set_object(g.ObjMeshGeometry.from_file(v.geom_meshfilename),
+          vis[vis_name].set_object(g.StlMeshGeometry.from_file(v.geom_meshfilename),
                           g.MeshLambertMaterial(
-                              map=g.ImageTexture(
-                                  image=g.PngImage.from_file(texture_path)
-                                  )
-                              ))
+                              # map=g.ImageTexture(
+                              #     image=g.PngImage.from_file(texture_path)
+                              #     )
+                          ))
+          
           v.uid = uid
           b2vis[v.uid] = b2v
           uid += 1

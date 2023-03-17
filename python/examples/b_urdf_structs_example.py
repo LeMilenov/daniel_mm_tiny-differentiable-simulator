@@ -44,7 +44,7 @@ collision_shape = pd.TinyUrdfCollision()
 collision_shape.geometry.geom_type = pd.SPHERE_TYPE
 collision_shape.geometry.sphere.radius = 2.0
 sphere_mb = create_multi_body(2.0, [collision_shape], True, world)
-sphere_mb.set_base_position(pd.Vector3(0.,0.,25.))
+sphere_mb.set_position(pd.Vector3(0.,0.,25.))
 dt = 1./240.
 
 mb_solver = pd.TinyMultiBodyConstraintSolver()

@@ -24,6 +24,17 @@
 				<capsule length="0.12000" radius="0.06000"/>
 			</geometry>
 		</collision>
+		<!-- NOT ORIGINAL VISUAL -->
+		<visual>
+			<origin rpy="0 0 0" xyz=" 0  0 0"/>
+			<geometry>
+				<mesh filename="chassis_zup.obj" scale="1 1 1"/>
+			</geometry>
+			<material name="white">
+				<color rgba="1 1 1 1"/>
+			</material>
+		</visual>
+    </collision>
 	</link>
 	<link name="link1_2">
 		<inertial>

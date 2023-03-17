@@ -271,7 +271,7 @@ class SimpleRobot(object):
     self.mb = dp.TinyMultiBody(is_floating)
     urdf2mb = dp.UrdfToMultiBody2()
     self.res = urdf2mb.convert2(self.urdf_data, self.world, self.mb)
-    self.mb.set_base_position(dp.Vector3(0,0,0.6))
+    self.mb.set_position(dp.Vector3(0,0,0.6))
 
     knee_angle = -0.5
     abduction_angle = 0.2
@@ -312,7 +312,7 @@ class SimpleRobot(object):
     self._motor_model = LaikagoMotorModel(kp=self._kp, kd=self._kd, motor_control_mode=MOTOR_CONTROL_HYBRID)
     
     self.ReceiveObservation()
-    self.mb.set_base_position(dp.Vector3(START_POS[0],START_POS[1],START_POS[2]))
+    self.mb.set_position(dp.Vector3(START_POS[0],START_POS[1],START_POS[2]))
     self.mb.set_base_orientation(dp.Quaternion(START_ORN[0],START_ORN[1],START_ORN[2],START_ORN[3]))
     
     dp.forward_kinematics(self.mb, self.mb.q, self.mb.qd)
