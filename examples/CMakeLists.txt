@@ -116,6 +116,16 @@ IF(APPLE)
   target_link_libraries(laikago_footstep_ik ${COCOA} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY})
 ENDIF()
 
+
+if (WIN32)
+    target_link_libraries(laikago_footstep_ik  Opengl32)
+endif (WIN32)
+
+IF(APPLE)
+  FIND_PACKAGE(OpenGL)
+  target_link_libraries(laikago_footstep_ik ${COCOA} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY})
+ENDIF()
+
 add_executable(opengl_test opengl_test.cpp  ../third_party/stb_image/stb_image.cpp ../third_party/tinyobjloader/tiny_obj_loader.cc  ${TDS_HDRS})
 target_include_directories(opengl_test PRIVATE ../third_party/tinyobjloader)
 target_include_directories(opengl_test PRIVATE ../third_party ../src)
@@ -168,12 +178,12 @@ add_executable(sdf_to_mesh_example sdf_to_mesh_example.cpp)
 target_include_directories(sdf_to_mesh_example PRIVATE ../third_party ../src)
 target_link_libraries(sdf_to_mesh_example opengl_window ${CMAKE_DL_LIBS})
 
+add_executable(laikago_tds_mpc whole_body_control/laikago_tds_mpc.cpp)
+target_link_libraries(laikago_tds_mpc tinyxml2 ${MESHCAT_LIBRARIES}
+        Eigen3::Eigen)
+target_include_directories(laikago_tds_mpc PRIVATE
+    ../third_party ../third_party/nlohmann/include ../src whole_body_control)
 IF(USE_OSQP)
-  add_executable(laikago_tds_mpc whole_body_control/laikago_tds_mpc.cpp)
-  target_link_libraries(laikago_tds_mpc tinyxml2 ${MESHCAT_LIBRARIES}
-          Eigen3::Eigen)
-  target_include_directories(laikago_tds_mpc PRIVATE
-      ../third_party ../third_party/nlohmann/include ../src whole_body_control)
   
   target_link_libraries(laikago_tds_mpc osqp::osqp)
   target_include_directories(laikago_tds_mpc PRIVATE ../third_party/osqp/build_cmake/local_install/include)

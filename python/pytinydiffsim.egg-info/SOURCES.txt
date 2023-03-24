@@ -63,12 +63,16 @@ examples/environments/reacher_environment.h
 examples/whole_body_control/laikago_tds_mpc.cpp
 python/CMakeLists.txt
 python/pytinydiffsim.cc
+python/pytinydiffsim.cp38-win_amd64.pyd
 python/pytinydiffsim.inl
 python/pytinydiffsim_ad.cc
+python/pytinydiffsim_ad.cp38-win_amd64.pyd
 python/pytinydiffsim_dual.cc
+python/pytinydiffsim_dual.cp38-win_amd64.pyd
 python/pytinydiffsim_example.py
 python/pytinydiffsim_includes.h
 python/pytinyopengl3.cc
+python/pytinyopengl3.cp38-win_amd64.pyd
 python/daniel/main_pipeline.py
 python/examples/a_meshcat_example.py
 python/examples/b_urdf_structs_example.py
@@ -79,6 +83,7 @@ python/examples/d_meshcat_tinymultibody.py
 python/examples/e_load_urdf.py
 python/examples/f_meshcat_tinyurdf.py
 python/examples/g_raycast.py
+python/examples/laikago_tds_sim_clean.py
 python/examples/meshcat_utils_dp.py
 python/examples/meshcat_utils_pb.py
 python/examples/pd_control.py
@@ -91,6 +96,7 @@ python/examples/vec_laikago_render.py
 python/examples/z_dual_numbers.py
 python/examples/__pycache__/meshcat_utils_dp.cpython-39.pyc
 python/examples/__pycache__/meshcat_utils_pb.cpython-39.pyc
+python/examples/__pycache__/pd_control.cpython-39.pyc
 python/examples/__pycache__/urdf_utils_pb.cpython-39.pyc
 python/examples/voxels/geom_utils.py
 python/examples/voxels/ldi.py
@@ -98,7 +104,6 @@ python/examples/voxels/ldi3d.py
 python/examples/whole_body_control/com_velocity_estimator.py
 python/examples/whole_body_control/foot_stepper.py
 python/examples/whole_body_control/gait_generator.py
-python/examples/whole_body_control/laikago_tds_sim_clean.py
 python/examples/whole_body_control/leg_controller.py
 python/examples/whole_body_control/locomotion_controller.py
 python/examples/whole_body_control/locomotion_controller_example.py

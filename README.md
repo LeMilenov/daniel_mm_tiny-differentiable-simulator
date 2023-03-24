@@ -85,11 +85,17 @@ All dependencies for meshcat visualization are included in third_party.
 *Disclaimer: This is not an official Google product.*
 # INSTALLATION
 ```
+<!-- py -m venv envTDS
+envTDS\Script\activate -->
 py .\setup.py install
 py .\setup.py build
 build_libs_windows.bat
 pip install pytinydiffsim
 pip install pybullet
+pip install meshcat
+python -m pip install git+https://github.com/adamheins/pyb_utils
+git submodule update --init --recursive
+
 ```
 ## Exemples
 ```

@@ -18,6 +18,11 @@ import pytinydiffsim as dp
 import meshcat_utils_dp
 import meshcat
 import pd_control
+import pybullet_utils.urdfEditor as ued
+import pybullet_utils.bullet_client as bc
+import pybullet_data as pd
+import meshcat_utils_pb
+import os
 
 import numpy as np
 
@@ -195,37 +200,38 @@ vis.delete()
 
 urdf_parser = dp.TinyUrdfParser()
 
-plane_urdf_data = urdf_parser.load_urdf("../../data/plane_implicit.urdf")
-plane2vis = meshcat_utils_dp.convert_visuals(plane_urdf_data, "../../data/checker_purple.png", vis, "../../data/")
+p0 = bc.BulletClient(connection_mode=1)#pybullet.GUI)#DIRECT)
+p0.configureDebugVisualizer(p0.COV_ENABLE_RENDERING,0)
+p0.setAdditionalSearchPath(pd.getDataPath())
+flags = p0.URDF_MAINTAIN_LINK_ORDER
+plane_urdf_data = p0.loadURDF("plane_implicit.urdf", flags=flags)
+# plane2vis = meshcat_utils_dp.convert_visuals(plane_urdf_data, "../../data/checker_purple.png", vis, "../../data/")
 plane_mb = dp.TinyMultiBody(False)
-plane2mb = dp.UrdfToMultiBody2()
-res = plane2mb.convert2(plane_urdf_data, world, plane_mb)
+# plane2mb = dp.UrdfToMultiBody2()
+# res = plane2mb.convert2(plane_urdf_data, world, plane_mb)
 
-urdf_data = urdf_parser.load_urdf("../../data/laikago/laikago_toes_zup.urdf")
-print("robot_name=",urdf_data.robot_name)
-b2vis = meshcat_utils_dp.convert_visuals(urdf_data, "../../data/laikago/laikago_tex.jpg", vis, "../../data/laikago/")
-is_floating=True
-mb = dp.TinyMultiBody(is_floating)
-urdf2mb = dp.UrdfToMultiBody2()
-res = urdf2mb.convert2(urdf_data, world, mb)
-mb.set_position(dp.Vector3(0,0,0.6))
+urdf_data = p0.loadURDF("\laikago\laikago_toes_zup.urdf")
+med0 = ued.UrdfEditor()
+med0.initializeFromBulletBody(urdf_data, p0._client)
 
-mb.set_base_orientation(dp.Quaternion(0.0, 0.0, 0.706825181105366, 0.7073882691671998))
+texture_path = os.path.join(pd.getDataPath(),'laikago/laikago_tex.jpg')
+b2vis = meshcat_utils_pb.convert_visuals_pb(vis,med0.urdfLinks, med0.urdfJoints, p0, texture_path)
 
 knee_angle = -0.5
 abduction_angle = 0.2
 
 initial_poses = [abduction_angle, 0., knee_angle, abduction_angle, 0., knee_angle,
                  abduction_angle, 0., knee_angle, abduction_angle, 0., knee_angle]
-
+is_floating=True
+mb = dp.TinyMultiBody(is_floating)
 qcopy = mb.q
-print("mb.q=",mb.q)
-print("qcopy=",qcopy)
-for q_index in range (12):
-  qcopy[q_index+7]=initial_poses[q_index]
-print("qcopy=",qcopy)
-mb.set_q(qcopy)
-print("2 mb.q=",mb.q)
+# print("mb.q=",mb.q)
+# print("qcopy=",qcopy)
+# for q_index in range (12):
+#   qcopy[q_index+7]=initial_poses[q_index]
+# print("qcopy=",qcopy)
+# mb.set_q(qcopy)
+# print("2 mb.q=",mb.q)
 dt = 1./1000.
 skip_sync = 0
 frame = 0

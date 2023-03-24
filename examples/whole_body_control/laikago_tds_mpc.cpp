@@ -53,12 +53,9 @@ int main(int argc,char* argv[]) {
     tds::SimpleRobot robot(time_step,meshcat_viz);
     tds::COMVelocityEstimator com_velocity_estimator(&robot);
     tds::OpenloopGaitGenerator openloop_gait_generator(&robot);
-    tds::RaibertSwingLegController
-        raibert_swing_leg_controller(&robot,&openloop_gait_generator,
-            &com_velocity_estimator);
+    tds::RaibertSwingLegController raibert_swing_leg_controller(&robot,&openloop_gait_generator,&com_velocity_estimator);
     bool use_cpp_mpc=true;//set to false for neural network qp solver
-    tds::TorqueStanceLegController
-        torque_stance_leg_controller(&robot, use_cpp_mpc);
+    tds::TorqueStanceLegController torque_stance_leg_controller(&robot, use_cpp_mpc);
 
     robot.Reset();
     openloop_gait_generator.Reset();

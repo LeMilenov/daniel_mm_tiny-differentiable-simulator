@@ -175,7 +175,9 @@ struct LaikagoSimulation {
                 int pose_index = system->is_floating() ? 7 : 0;
                 for (int i = 0; i < system->links_.size(); i++) {
                     if (system->links_[i].joint_type != tds::JOINT_FIXED) {
-                        Scalar q_desired = all_joint_angles2[pose_index++];
+                        
+                        //Scalar q_desired = all_joint_angles2[pose_index++];
+                        Scalar q_desired = 0;
                         Scalar q_actual = system->q_[q_offset];
                         Scalar qd_actual = system->qd_[qd_offset];
                         Scalar position_error = (q_desired - q_actual);
@@ -402,10 +404,10 @@ int main(int argc, char* argv[]) {
   }
   //DANIEL - why hardcoded ?
   // body indices of feet
-  const int foot_fr = 3;// 2;
-  const int foot_fl = 7;// 5;
-  const int foot_br = 11;// 8;
-  const int foot_bl = 15;// 11;
+  const int foot_fr = 4;// 2;
+  const int foot_fl = 9;// 5;
+  //const int foot_br = 11;// 8;
+  //const int foot_bl = 15;// 11;
   
 
   auto robot_mb_ = contact_sim.system;
@@ -421,8 +423,8 @@ int main(int argc, char* argv[]) {
   // Daniel - for a humanoid we only have 2 foot placements and 2 hands ? four foots placements
   inverse_kinematics.targets.emplace_back(foot_fr, contact_sim.system->links()[foot_fr].X_world.translation);
   inverse_kinematics.targets.emplace_back(foot_fl, contact_sim.system->links()[foot_fl].X_world.translation);
-  inverse_kinematics.targets.emplace_back(foot_br, contact_sim.system->links()[foot_br].X_world.translation);
-  inverse_kinematics.targets.emplace_back(foot_bl, contact_sim.system->links()[foot_bl].X_world.translation);
+  /*inverse_kinematics.targets.emplace_back(foot_br, contact_sim.system->links()[foot_br].X_world.translation);
+  inverse_kinematics.targets.emplace_back(foot_bl, contact_sim.system->links()[foot_bl].X_world.translation);*/
   inverse_kinematics.q_reference = contact_sim.system->q();
   MyAlgebra::VectorX q_desired = contact_sim.system->q();
     
@@ -431,47 +433,47 @@ int main(int argc, char* argv[]) {
 
   std::vector<MyScalar> vec_x_init(4);
   std::vector<MyScalar> vec_x(4);
-  std::vector<MyScalar> vec_y(4);
-  std::vector<MyScalar> vec_z(4);
-  for (int i=0;i<4;i++)
+  /*std::vector<MyScalar> vec_y(4);
+  std::vector<MyScalar> vec_z(4);*/
+  for (int i=0;i<2;i++)
   {
       vec_x_init[i] = inverse_kinematics.targets[i].position.x();
       vec_x[i] = inverse_kinematics.targets[i].position.x();
-      vec_y[i] = inverse_kinematics.targets[i].position.y();
-      vec_z[i] = inverse_kinematics.targets[i].position.z();
+     /* vec_y[i] = inverse_kinematics.targets[i].position.y();
+      vec_z[i] = inverse_kinematics.targets[i].position.z();*/
   }
+  //NO ANIMATION
 
-  double t = 0;
-  double phases[4] = {0,3.1415,3.1415,0};
+  //double t = 0;
+  //double phases[4] = {0,3.1415,3.1415,0};
 
   std::vector<VectorX> joint_angle_array;
 
-  while (t<2*3.141592)
-  {
-    for (int i=0;i<4;i++)
-    {
-        //MyAlgebra::Vector3 contact_sim.system->base_X_world_.apply(MyAlgebra::Vector3(0,0,0.01);
-        vec_z[i] = 0.05 + 0.15*sin(t+phases[i]);
-        vec_z[i] = MyAlgebra::max(vec_z[i],0.05);
-        vec_x[i] = vec_x_init[i] + -0.04*cos(t+phases[i]);
-        inverse_kinematics.targets[i].position = MyAlgebra::Vector3(vec_x[i],vec_y[i],vec_z[i]);
-    }
+  //while (t<2*3.141592)
+  //{
+  //  for (int i=0;i<4;i++)
+  //  {
+  //      //MyAlgebra::Vector3 contact_sim.system->base_X_world_.apply(MyAlgebra::Vector3(0,0,0.01);
+  //      vec_z[i] = 0.05 + 0.15*sin(t+phases[i]);
+  //      vec_z[i] = MyAlgebra::max(vec_z[i],0.05);
+  //      vec_x[i] = vec_x_init[i] + -0.04*cos(t+phases[i]);
+  //      inverse_kinematics.targets[i].position = MyAlgebra::Vector3(vec_x[i],vec_y[i],vec_z[i]);
+  //  }
 
-    inverse_kinematics.compute(*contact_sim.system, contact_sim.system->q(), all_joint_angles2);
-    joint_angle_array.push_back(all_joint_angles2);
-    t += 30.*contact_sim.dt;
-  }
+  //  inverse_kinematics.compute(*contact_sim.system, contact_sim.system->q(), all_joint_angles2);
+  //  joint_angle_array.push_back(all_joint_angles2);
+  //  t += 30.*contact_sim.dt;
+  //}
 
   int pose_index = 0;
 
   while (!visualizer.m_opengl_app.m_window->requested_exit()) {
-    
-      all_joint_angles2 = joint_angle_array[pose_index];
-      pose_index++;
-      if (pose_index>=joint_angle_array.size())
-          pose_index=0;
-      
-
+      if (!joint_angle_array.empty()) {
+          all_joint_angles2 = joint_angle_array[pose_index];
+          pose_index++;
+          if (pose_index>=joint_angle_array.size())
+              pose_index=0;
+      }
 
       for (int i = 0; i < num_total_threads; ++i) {
           parallel_outputs[i] = contact_sim(parallel_inputs[i]);
@@ -509,13 +511,8 @@ int main(int argc, char* argv[]) {
                               ::TINY::TinyQuaternionf orn;
                               if (is_floating)
                               {
-                                  pos = ::TINY::TinyVector3f(parallel_outputs[s][4 + 0],
-                                  parallel_outputs[s][4 + 1],
-                                  parallel_outputs[s][4 + 2]);
-                                  orn = ::TINY::TinyQuaternionf (parallel_outputs[s][0],
-                                  parallel_outputs[s][1],
-                                  parallel_outputs[s][2],
-                                  parallel_outputs[s][3]);
+                                  pos = ::TINY::TinyVector3f(parallel_outputs[s][4 + 0],parallel_outputs[s][4 + 1],parallel_outputs[s][4 + 2]);
+                                  orn = ::TINY::TinyQuaternionf (parallel_outputs[s][0], parallel_outputs[s][1], parallel_outputs[s][2], parallel_outputs[s][3]);
                               } else
                               {
                                   auto base_pos = contact_sim.system->base_X_world().translation;

@@ -281,8 +281,8 @@ class SimpleRobot {
   void SetupLaikago(MeshcatUrdfVisualizer<MyAlgebra>& meshcat_viz) {
     char robot_search_path[TINY_MAX_EXE_PATH_LEN];
     std::string robot_file_name;
-    FileUtils::find_file("laikago/laikago_toes_zup_joint_order.urdf",
-                         robot_file_name);
+    FileUtils::find_file("laikago/laikago_toes_zup_joint_order.urdf", robot_file_name);
+    //FileUtils::find_file("Daniel_data/humanoid_visual.urdf", robot_file_name);
     FileUtils::extract_path(robot_file_name.c_str(), robot_search_path,
                             TINY_MAX_EXE_PATH_LEN);
 
@@ -308,8 +308,7 @@ class SimpleRobot {
     bool floating_base = true;
     robot_mb_ = world_.create_multi_body();
     robot_mb_->set_floating_base(true);
-    UrdfToMultiBody<MyAlgebra>::convert_to_multi_body(
-        urdf_structures, world_, *robot_mb_, 0);
+    UrdfToMultiBody<MyAlgebra>::convert_to_multi_body(urdf_structures, world_, *robot_mb_, 0);
     robot_mb_->initialize();
     meshcat_viz.convert_visuals(urdf_structures, texture_path, robot_mb_);
     int start_index = 0;

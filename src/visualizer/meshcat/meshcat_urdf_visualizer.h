@@ -31,6 +31,7 @@
 inline std::string correct_non_utf_8(const std::string &str) {
   int i, f_size = str.size();
   unsigned char c, c2, c3, c4;
+  c2 = 1;
   std::string to;
   to.reserve(f_size);
 
