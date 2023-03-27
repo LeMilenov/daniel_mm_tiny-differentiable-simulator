@@ -3,6 +3,7 @@ LICENSE
 MANIFEST.in
 README.md
 setup.py
+Daniel_examples/billiard_follow_target.cpp
 examples/billiard_opt_example_gui.cpp
 examples/cartpole_eval.cpp
 examples/ceres_estimation_real.cpp

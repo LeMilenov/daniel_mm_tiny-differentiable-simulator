@@ -95,7 +95,7 @@ pip install pybullet
 pip install meshcat
 python -m pip install git+https://github.com/adamheins/pyb_utils
 git submodule update --init --recursive
-
+*** carefull of admin privileges, change folder privileges ***
 ```
 ## Exemples
 ```

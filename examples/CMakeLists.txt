@@ -53,6 +53,10 @@ add_executable(billiard_opt_example_gui billiard_opt_example_gui.cpp  ${TDS_HDRS
 target_link_libraries(billiard_opt_example_gui opengl_window ${CMAKE_DL_LIBS})
 target_include_directories(billiard_opt_example_gui PRIVATE ../src)
 
+add_executable(billiard_follow_target billiard_follow_target.cpp  ${TDS_HDRS})
+target_link_libraries(billiard_follow_target opengl_window ${CMAKE_DL_LIBS})
+target_include_directories(billiard_follow_target PRIVATE ../src)
+
 add_executable(soft_contact_example soft_contact_example.cpp  ${TDS_HDRS})
 target_link_libraries(soft_contact_example opengl_window Eigen3::Eigen  ${CMAKE_DL_LIBS})
 target_compile_definitions(soft_contact_example PRIVATE USE_TINY )

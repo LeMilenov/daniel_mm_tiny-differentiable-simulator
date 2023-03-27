@@ -60,6 +60,9 @@ std::string sphere2red;
 
 // ID of the ball whose position is optimized for
 const int TARGET_ID = 5;
+// Constants
+const double target_amplitude = 0.01;
+const double target_frequency = 0.01;
 
 template <typename Algebra>
 // basically, error for ball position after 300 steps when we apply force x and y + do a render of it
@@ -73,7 +76,9 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
   typedef Geometry<Algebra> TinyGeometry;
 
   std::vector<int> visuals;
+  //TARGET POSITION
   Vector3 target(Algebra::fraction(35, 10),Algebra::fraction(8, 1), Algebra::zero());
+
   int sphere_shape = -1;
   if (app) {
       app->m_instancingRenderer->remove_all_instances();
@@ -91,6 +96,8 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
   Scalar dx = Algebra::cos(deg_60) * radius * Algebra::two();
   Scalar dy = Algebra::sin(deg_60) * radius * Algebra::two();
   Scalar rx = Algebra::zero(), y = Algebra::zero();
+
+
   int ball_id = 0;
   // create spheres and put them in the scene
   for (int column = 1; column <= 3; ++column) {
@@ -125,7 +132,8 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
   bodies.push_back(white_ball);
   // apply force 
   white_ball->apply_central_force(Vector3::create(force_x, force_y, Algebra::zero()));
-  // RENDER
+  
+  // RENDER done once
   if (app) {
       {
           TinyVector3f pos(Algebra::to_double(white.x()), Algebra::to_double(white.y()),Algebra::to_double(white.z()));
@@ -164,17 +172,31 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
       for (int b = 0; b < bodies.size(); b++) {
         const TinyRigidBody* body = bodies[b];
         int sphere_id = visuals[b];
-        TinyVector3f base_pos(
-            Algebra::to_double(body->world_pose_.position_.getX()),
-            Algebra::to_double(body->world_pose_.position_.getY()),
-            Algebra::to_double(body->world_pose_.position_.getZ()));
-        TinyQuaternionf base_orn(
-            Algebra::to_double(body->world_pose_.orientation_.getX()),
-            Algebra::to_double(body->world_pose_.orientation_.getY()),
-            Algebra::to_double(body->world_pose_.orientation_.getZ()),
-            Algebra::to_double(body->world_pose_.orientation_.getW()));
-        app->m_instancingRenderer->write_single_instance_transform_to_cpu(base_pos, base_orn, sphere_id);
+        // MOVE OUR TARGET SPHERE
+        if (sphere_id == TARGET_ID) {
+          //move the base_position for sin function based on step i
+          TinyVector3f base_pos(target_position(i));
+          TinyQuaternionf base_orn(
+              Algebra::to_double(body->world_pose_.orientation_.getX()),
+              Algebra::to_double(body->world_pose_.orientation_.getY()),
+              Algebra::to_double(body->world_pose_.orientation_.getZ()),
+              Algebra::to_double(body->world_pose_.orientation_.getW()));
+          app->m_instancingRenderer->write_single_instance_transform_to_cpu( base_pos, base_orn, sphere_id);
+          
+        } else {
+            TinyVector3f base_pos(
+                Algebra::to_double(body->world_pose_.position_.getX()),
+                Algebra::to_double(body->world_pose_.position_.getY()),
+                Algebra::to_double(body->world_pose_.position_.getZ()));
+            TinyQuaternionf base_orn(
+                Algebra::to_double(body->world_pose_.orientation_.getX()),
+                Algebra::to_double(body->world_pose_.orientation_.getY()),
+                Algebra::to_double(body->world_pose_.orientation_.getZ()),
+                Algebra::to_double(body->world_pose_.orientation_.getW()));
+            app->m_instancingRenderer->write_single_instance_transform_to_cpu(base_pos, base_orn, sphere_id);
+        }
       }
+      
       // render the whole scene
       app->m_renderer->render_scene();
       app->m_renderer->write_transforms();
@@ -187,6 +209,11 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
   return delta.sqnorm();
 }
 
+// Update Target position with sin function
+TinyVector3f target_position(double t) {
+  return TinyVector3f(35/10, 8 * sin(target_frequency * t), 0);
+}
+
 // Computes gradient using finite differences
 void grad_finite(double force_x, double force_y, double* cost, double* d_force_x, double* d_force_y, int steps = 300, double eps = 1e-5) {
   //count the normal cost
@@ -197,7 +224,6 @@ void grad_finite(double force_x, double force_y, double* cost, double* d_force_x
   double cy = rollout< TinyAlgebra<double, DoubleUtils>>(force_x, force_y + eps, steps);
   *d_force_x = (cx - *cost) / eps;
   *d_force_y = (cy - *cost) / eps;
-  //gradients ?
 }
 
 // void grad_stan(double force_x, double force_y, double* cost, double*
