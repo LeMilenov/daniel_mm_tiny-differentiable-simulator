@@ -37,10 +37,6 @@ using namespace tds;
 #include "visualizer/opengl/tiny_opengl3_app.h"
 #include "math/tiny/tiny_algebra.hpp"
 
-#ifdef USE_CERES
-#include <ceres/autodiff_cost_function.h>
-#include "math/tiny/ceres_utils.h"
-#endif //USE_CERES
 #include <chrono>  // std::chrono::seconds
 #include <thread>  // std::this_thread::sleep_for
 
@@ -53,7 +49,7 @@ using namespace tds;
 #include "rigid_body.hpp"
 
 #include "utils/file_utils.hpp"
-
+#include <random>
 
 std::string sphere2red;
 
@@ -67,7 +63,7 @@ const double target_frequency = 0.01;
 template <typename Algebra>
 // basically, error for ball position after 300 steps when we apply force x and y + do a render of it
 // CREATE ENVIRONMENT + apply force + nb of steps (frames) and calculate the sqrn error after all these frames are done
-typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Algebra::Scalar force_y, int steps = 300, TinyOpenGL3App* app=0,typename Algebra::Scalar dt = Algebra::fraction(1, 60)) {
+typename Algebra::Scalar rollout(std::vector<double>& t_force_x,  std::vector<double>& t_force_y, int steps = 300, TinyOpenGL3App* app=0,typename Algebra::Scalar dt = Algebra::fraction(1, 60)) {
 
   using Scalar = typename Algebra::Scalar;
   using Vector3 = typename Algebra::Vector3;
@@ -130,31 +126,34 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
   TinyRigidBody* white_ball = world.create_rigid_body(mass, white_geom);
   white_ball->world_pose_.position_ = Vector3::create(white.x(), white.y(), white.z());
   bodies.push_back(white_ball);
-  // apply force 
-  white_ball->apply_central_force(Vector3::create(force_x, force_y, Algebra::zero()));
-  
-  // RENDER done once
-  if (app) {
-      {
-          TinyVector3f pos(Algebra::to_double(white.x()), Algebra::to_double(white.y()),Algebra::to_double(white.z()));
-          TinyQuaternionf orn(0, 0, 0, 1);
-          TinyVector3f color(1, 1, 1);
-          TinyVector3f scaling(0.5, 0.5, 0.5);
-          int instance = app->m_renderer->register_graphics_instance(sphere_shape, pos, orn, color, scaling);
-          visuals.push_back(instance);
-      }
-      {
-          TinyVector3f pos(Algebra::to_double(target.x()), Algebra::to_double(target.y()),Algebra::to_double(target.z()));
-          TinyQuaternionf orn(0, 0, 0, 1);
-          TinyVector3f color(0, 0, 1);
-          TinyVector3f scaling(0.5, 0.5, 0.5);
-          int instance = app->m_renderer->register_graphics_instance(sphere_shape, pos, orn, color, scaling);
-          visuals.push_back(instance);
-      }
-
-  }
   // render multiple frames for every step
+  Scalar cost = 0; 
   for (int i = 0; i < steps; i++) {
+    // apply force 
+    white_ball->apply_central_force(Vector3::create(t_force_x[i], t_force_y[i], Algebra::zero()));
+    
+    // RENDER done once
+    if (app) {
+        {
+            TinyVector3f pos(Algebra::to_double(white.x()), Algebra::to_double(white.y()),Algebra::to_double(white.z()));
+            TinyQuaternionf orn(0, 0, 0, 1);
+            TinyVector3f color(1, 1, 1);
+            TinyVector3f scaling(0.5, 0.5, 0.5);
+            int instance = app->m_renderer->register_graphics_instance(sphere_shape, pos, orn, color, scaling);
+            visuals.push_back(instance);
+        }
+        {
+            //move the target's position with sin
+            target = Vector3::create( target.x(), target.y() * sin(target_frequency * i), target.z());
+            TinyVector3f pos(Algebra::to_double(target.x()), Algebra::to_double(target.y()),Algebra::to_double(target.z()));
+            TinyQuaternionf orn(0, 0, 0, 1);
+            TinyVector3f color(0, 0, 1);
+            TinyVector3f scaling(0.5, 0.5, 0.5);
+            int instance = app->m_renderer->register_graphics_instance(sphere_shape, pos, orn, color, scaling);
+            visuals.push_back(instance);
+        }
+
+    }
     
     world.step(dt);
     int upAxis = 2;
@@ -172,29 +171,17 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
       for (int b = 0; b < bodies.size(); b++) {
         const TinyRigidBody* body = bodies[b];
         int sphere_id = visuals[b];
-        // MOVE OUR TARGET SPHERE
-        if (sphere_id == TARGET_ID) {
-          //move the base_position for sin function based on step i
-          TinyVector3f base_pos(target_position(i));
+          TinyVector3f base_pos(
+              Algebra::to_double(body->world_pose_.position_.getX()),
+              Algebra::to_double(body->world_pose_.position_.getY()),
+              Algebra::to_double(body->world_pose_.position_.getZ()));
           TinyQuaternionf base_orn(
               Algebra::to_double(body->world_pose_.orientation_.getX()),
               Algebra::to_double(body->world_pose_.orientation_.getY()),
               Algebra::to_double(body->world_pose_.orientation_.getZ()),
               Algebra::to_double(body->world_pose_.orientation_.getW()));
-          app->m_instancingRenderer->write_single_instance_transform_to_cpu( base_pos, base_orn, sphere_id);
-          
-        } else {
-            TinyVector3f base_pos(
-                Algebra::to_double(body->world_pose_.position_.getX()),
-                Algebra::to_double(body->world_pose_.position_.getY()),
-                Algebra::to_double(body->world_pose_.position_.getZ()));
-            TinyQuaternionf base_orn(
-                Algebra::to_double(body->world_pose_.orientation_.getX()),
-                Algebra::to_double(body->world_pose_.orientation_.getY()),
-                Algebra::to_double(body->world_pose_.orientation_.getZ()),
-                Algebra::to_double(body->world_pose_.orientation_.getW()));
-            app->m_instancingRenderer->write_single_instance_transform_to_cpu(base_pos, base_orn, sphere_id);
-        }
+          app->m_instancingRenderer->write_single_instance_transform_to_cpu(base_pos, base_orn, sphere_id);
+        
       }
       
       // render the whole scene
@@ -202,28 +189,71 @@ typename Algebra::Scalar rollout(typename Algebra::Scalar force_x, typename Alge
       app->m_renderer->write_transforms();
       app->swap_buffer();
     }
+ // Calculate error based on force applied in t_force
+    // t_force_grad += (bodies[TARGET_ID]->world_pose_.position_ - target).sqnorm();
+    cost += (bodies[TARGET_ID]->world_pose_.position_ - target).sqnorm();  
+  
+  }
+  return cost/steps;
+}
+
+/// Computes gradient using finite differences
+void grad_finite(std::vector<double>& t_force_x, std::vector<double>& t_force_y, double* cost, std::vector<double>* grad_force_x, std::vector<double>* grad_force_y, int steps = 300, double eps = 1e-5) {
+   //count the normal cost
+  *cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps);
+  std::vector<double> t_force_x_original = t_force_x;
+  std::vector<double> t_force_y_original = t_force_y;
+  
+  // Compute gradient with respect to t_force_x
+  for (int i = 0; i < steps; i++)
+  {
+    t_force_x[i] += eps;
+    double cx = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x ,t_force_y, steps);
+    (*grad_force_x)[i] = (cx - *cost) / eps;
+    t_force_x[i] = t_force_x_original[i];
+  }
+  
+  // Compute gradient with respect to t_force_y
+  for (int i = 0; i < steps; i++)
+  {
+    t_force_y[i] += eps;
+    double cy = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps);
+    (*grad_force_y)[i] = (cy - *cost) / eps;
+    t_force_y[i] = t_force_y_original[i];
   }
 
-  // Compute error for specific ball with SQNORM
-  Vector3 delta = bodies[TARGET_ID]->world_pose_.position_ - target;  
-  return delta.sqnorm();
-}
-
-// Update Target position with sin function
-TinyVector3f target_position(double t) {
-  return TinyVector3f(35/10, 8 * sin(target_frequency * t), 0);
-}
-
-// Computes gradient using finite differences
-void grad_finite(double force_x, double force_y, double* cost, double* d_force_x, double* d_force_y, int steps = 300, double eps = 1e-5) {
+  // OR 
   //count the normal cost
-  *cost = rollout<TinyAlgebra<double, DoubleUtils>>(force_x, force_y, steps);
-  //cost where force_x + eps
-  double cx = rollout< TinyAlgebra<double, DoubleUtils>>(force_x + eps, force_y, steps);
-  // cost where force_y + eps
-  double cy = rollout< TinyAlgebra<double, DoubleUtils>>(force_x, force_y + eps, steps);
-  *d_force_x = (cx - *cost) / eps;
-  *d_force_y = (cy - *cost) / eps;
+  // *cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps);
+  // std::vector<Algebra::Vector3> t_force_x_original = t_force_x; // copy t_force_x
+  // std::vector<Algebra::Vector3> t_force_y_original = t_force_y; // copy t_force_y
+  
+  // // compute gradient w.r.t. t_force_x
+  // for (int i = 0; i < 300; i++) {
+  //   t_force_x[i].x() += eps;
+  //   double cost_plus = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps);
+  //   t_force_x[i].x() -= eps;
+
+  //   t_force_x[i].y() += eps;
+  //   double cost_minus = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps);
+  //   t_force_x[i].y() -= eps;
+
+  //   grad_force_x[i] = (cost_plus - cost_minus) / (2.0 * eps);
+  // }
+
+  // // compute gradient w.r.t. t_force_y
+  // for (int i = 0; i < 300; i++) {
+  //   t_force_y[i].x() += eps;
+  //   double cost_plus = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x_original, t_force_y, steps);
+  //   t_force_y[i].x() -= eps;
+
+  //   t_force_y[i].y() += eps;
+  //   double cost_minus = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x_original, t_force_y, steps);
+  //   t_force_y[i].y() -= eps;
+
+  //   grad_force_y[i] = (cost_plus - cost_minus) / (2.0 * eps);
+  // }
+
 }
 
 // void grad_stan(double force_x, double force_y, double* cost, double*
@@ -244,61 +274,64 @@ void grad_finite(double force_x, double force_y, double* cost, double* d_force_x
 //}
 
 // CE QU ON VX UTILISER (plus stable)
-void grad_dual(double force_x, double force_y, double* cost, double* d_force_x, double* d_force_y, int steps = 300, double eps = 1e-5) {
-  typedef TinyDual<double> TinyDual;
-  {
-    TinyDual fx(force_x, 1.);
-    TinyDual fy(force_y, 0.);
-    //calculate rollout cost
-    TinyDual c = rollout< TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
-    *cost = c.real();
-    *d_force_x = c.dual();
-  }
-  {
-    TinyDual fx(force_x, 0.);
-    TinyDual fy(force_y, 1.);
+// void grad_dual(double force_x, double force_y, double* cost, double* d_force_x, double* d_force_y, int steps = 300, double eps = 1e-5) {
+//   typedef TinyDual<double> TinyDual;
+//   {
+//     TinyDual fx(force_x, 1.);
+//     TinyDual fy(force_y, 0.);
+//     //calculate rollout cost
+//     TinyDual c = rollout< TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
+//     *cost = c.real();
+//     *d_force_x = c.dual();
+//   }
+//   {
+//     TinyDual fx(force_x, 0.);
+//     TinyDual fy(force_y, 1.);
 
-    TinyDual c = rollout< TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
-    *d_force_y = c.dual();
-  }
-}
-
-
-#ifdef USE_CERES
-
-struct CeresFunctional {
-  int steps{300};
-
-  template <typename T>
-  bool operator()(const T* const x, T* e) const {
-    typedef ceres::Jet<double, 2> Jet;
-    T fx(x[0]), fy(x[1]);
-    typedef std::conditional_t<std::is_same_v<T, double>, DoubleUtils,
-                               CeresUtils<2>>
-        Utils;
-    *e = rollout<TinyAlgebra<T, Utils> >(fx, fy, steps);
-    return true;
-  }
-};
+//     TinyDual c = rollout< TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
+//     *d_force_y = c.dual();
+//   }
+// }
 
 
-ceres::AutoDiffCostFunction<CeresFunctional, 1, 2> cost_function(
-    new CeresFunctional);
-double* parameters = new double[2];
-double* gradient = new double[2];
+// #ifdef USE_CERES
 
-void grad_ceres(double force_x, double force_y, double* cost, double* d_force_x,
-                double* d_force_y, int steps = 300) {
-  parameters[0] = force_x;
-  parameters[1] = force_y;
-  double const* const* params = &parameters;
-  cost_function.Evaluate(params, cost, &gradient);
-  *d_force_x = gradient[0];
-  *d_force_y = gradient[1];
-}
-#endif //USE_CERES
+// struct CeresFunctional {
+//   int steps{300};
 
+//   template <typename T>
+//   bool operator()(const T* const x, T* e) const {
+//     typedef ceres::Jet<double, 2> Jet;
+//     T fx(x[0]), fy(x[1]);
+//     typedef std::conditional_t<std::is_same_v<T, double>, DoubleUtils,
+//                                CeresUtils<2>>
+//         Utils;
+//     *e = rollout<TinyAlgebra<T, Utils> >(fx, fy, steps);
+//     return true;
+//   }
+// };
+
+
+// ceres::AutoDiffCostFunction<CeresFunctional, 1, 2> cost_function(
+//     new CeresFunctional);
+// double* parameters = new double[2];
+// double* gradient = new double[2];
+
+// void grad_ceres(double force_x, double force_y, double* cost, double* d_force_x,
+//                 double* d_force_y, int steps = 300) {
+//   parameters[0] = force_x;
+//   parameters[1] = force_y;
+//   double const* const* params = &parameters;
+//   cost_function.Evaluate(params, cost, &gradient);
+//   *d_force_x = gradient[0];
+//   *d_force_y = gradient[1];
+// }
+// #endif //USE_CERES
+// template <typename Algebra>
 int main(int argc, char* argv[]) {
+
+  // using Vector3 = typename Algebra::Vector3;
+
     // Load URDF
   FileUtils::find_file("sphere2red.urdf", sphere2red);
   using namespace std::chrono;
@@ -312,73 +345,60 @@ int main(int argc, char* argv[]) {
   app.m_renderer->get_active_camera()->set_camera_target_position(0, 0, 0);
 
   // init forces
-  double init_force_x = 0., init_force_y = 500.;
+  // double init_force_x = 0., init_force_y = 500.;
   int steps = 300;
-  rollout< TinyAlgebra<double, DoubleUtils>>(init_force_x, init_force_y, steps, &app);
+  int eps = 1e-5;
+  double lr = 0.1;
+  std::vector<double> t_force_x(300);
+  std::vector<double> t_force_y(300);
+
+  rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
 
   {
     auto start = high_resolution_clock::now();
     //create variables to update
-    double cost, d_force_x, d_force_y;
-    double learning_rate = 1e2;
-    double force_x = init_force_x, force_y = init_force_y;
+     //create variables to update
+    std::vector<double> t_force_x_original = t_force_x; // TODO COPY ???
+    std::vector<double> t_force_y_original = t_force_y;
+    double cost;
+     // init gradients vectors
+    std::vector<double> t_force_grad_x(300);
+    std::vector<double> t_force_grad_y(300);
 
     //do 50 learning iterations with grad_finite
     for (int iter = 0; iter < 50; ++iter) {
-      grad_finite(force_x, force_y, &cost, &d_force_x, &d_force_y, steps);
-      printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost,
-             force_x, force_y);
-      force_x -= learning_rate * d_force_x;
-      force_y -= learning_rate * d_force_y;
+      grad_finite(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps, eps);
+      // printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost);
+      for (int i = 0; i < steps; ++i) {
+        t_force_x[i] -= lr * t_force_grad_x[i];
+        t_force_y[i] -= lr * t_force_grad_y[i];
+      }
     }
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     printf("Finite differences took %ld microseconds.", static_cast<long>(duration.count()));
     // do final render with optimized forces
-    rollout< TinyAlgebra<double, DoubleUtils>>(force_x, force_y, steps, &app);
+    rollout< TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
   }
   
-  {
-    // DO same thing with grad_dual()
-    auto start = high_resolution_clock::now();
-    double cost, d_force_x, d_force_y;
-    double learning_rate = 1e2;
-    double force_x = init_force_x, force_y = init_force_y;
-    for (int iter = 0; iter < 50; ++iter) {
-      grad_dual(force_x, force_y, &cost, &d_force_x, &d_force_y, steps);
-      printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost,
-             force_x, force_y);
-      force_x -= learning_rate * d_force_x;
-      force_y -= learning_rate * d_force_y;
-    }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop - start);
-    printf("TinyDual took %ld microseconds.", static_cast<long>(duration.count()));
-    rollout< TinyAlgebra<double, DoubleUtils>>(force_x, force_y, steps, &app);
-  }
-  
-
-#ifdef USE_CERES
-  {
-    auto start = high_resolution_clock::now();
-    double cost, d_force_x, d_force_y;
-    double learning_rate = 1e2;
-    double force_x = init_force_x, force_y = init_force_y;
-    for (int iter = 0; iter < 50; ++iter) {
-      grad_ceres(force_x, force_y, &cost, &d_force_x, &d_force_y, steps);
-      printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost,
-             force_x, force_y);
-      force_x -= learning_rate * d_force_x;
-      force_y -= learning_rate * d_force_y;
-    }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop - start);
-    printf("Ceres Jet took %ld microseconds.",
-           static_cast<long>(duration.count()));
-    rollout<TinyAlgebra<double, DoubleUtils> >(force_x, force_y, steps, &app);
-  }
-#endif //USE_CERES
-
+  // {
+  //   // DO same thing with grad_dual()
+  //   auto start = high_resolution_clock::now();
+  //   double cost, d_force_x, d_force_y;
+  //   double learning_rate = 1e2;
+  //   double force_x = init_force_x, force_y = init_force_y;
+  //   for (int iter = 0; iter < 50; ++iter) {
+  //     grad_dual(force_x, force_y, &cost, &d_force_x, &d_force_y, steps);
+  //     printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost,
+  //            force_x, force_y);
+  //     force_x -= learning_rate * d_force_x;
+  //     force_y -= learning_rate * d_force_y;
+  //   }
+  //   auto stop = high_resolution_clock::now();
+  //   auto duration = duration_cast<microseconds>(stop - start);
+  //   printf("TinyDual took %ld microseconds.", static_cast<long>(duration.count()));
+  //   rollout< TinyAlgebra<double, DoubleUtils>>(force_x, force_y, steps, &app);
+  // }
   
   return 0;
 }
