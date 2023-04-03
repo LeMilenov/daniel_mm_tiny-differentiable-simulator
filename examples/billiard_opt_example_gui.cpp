@@ -300,8 +300,7 @@ int main(int argc, char* argv[]) {
     //do 50 learning iterations with grad_finite
     for (int iter = 0; iter < 50; ++iter) {
       grad_finite(force_x, force_y, &cost, &d_force_x, &d_force_y, steps);
-      printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost,
-             force_x, force_y);
+      printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost, force_x, force_y);
       force_x -= learning_rate * d_force_x;
       force_y -= learning_rate * d_force_y;
     }
