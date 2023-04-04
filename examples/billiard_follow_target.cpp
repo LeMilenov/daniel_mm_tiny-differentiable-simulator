@@ -95,7 +95,7 @@ typename Algebra::Scalar rollout(std::vector<double>& t_force_x,  std::vector<do
   //TARGET POSITION [3.5, 8, 0]
   // Vector3 target(Algebra::fraction(35, 10),Algebra::fraction(8, 1), Algebra::zero());
   Vector3 target = Vector3::create(Algebra::zero(), -Algebra::two(), Algebra::zero());
-  // Create white ball (the ball we apply force to) at [0, -2, 0 ]
+  // Create white ball (the ball we apply force to) at [0, 2, 0 ]
   Vector3 white_position = Vector3::create(Algebra::zero(), -Algebra::two(), Algebra::zero());
   const TinyGeometry* white_geom = world.create_sphere(radius);
   TinyRigidBody* white_ball = world.create_rigid_body(mass, white_geom);
@@ -111,6 +111,8 @@ typename Algebra::Scalar rollout(std::vector<double>& t_force_x,  std::vector<do
     // does this update the bodies[white_ball] ??
     bodies[0]->apply_central_force(Vector3::create(t_force_x[i], t_force_y[i], Algebra::zero()));
     // white_ball->apply_central_force(Vector3::create(t_force_x[i], t_force_y[i], Algebra::zero()));
+    target = Vector3::create( target_amplitude * sin(target_frequency * i), target_amplitude * sin(target_frequency * i), target.z());
+
     if (app) {
         //reset
         for (int j = 0; j < visuals.size(); j++) {
@@ -134,7 +136,6 @@ typename Algebra::Scalar rollout(std::vector<double>& t_force_x,  std::vector<do
             //move the target's position with sin (blue ball)
             //TODO set variable only once and add it in bodies (only modify the position)
             //move target on y axis and x axis
-            target = Vector3::create( target_amplitude * sin(target_frequency * i), target_amplitude * sin(target_frequency * i), target.z());
             TinyVector3f pos(Algebra::to_double(target.x()), Algebra::to_double(target.y()),Algebra::to_double(target.z()));
             TinyQuaternionf orn(0, 0, 0, 1);
             TinyVector3f color(0, 0, 1);// blue ball current target
@@ -176,7 +177,10 @@ typename Algebra::Scalar rollout(std::vector<double>& t_force_x,  std::vector<do
       app->swap_buffer();
     }
     // Calculate error based on force applied in t_force, only once ?
+    // cost += (bodies[0]->world_pose_.position_ - target).length_squared();
     cost += (bodies[0]->world_pose_.position_ - target).sqnorm();
+   /* double x = t_force_x[i] - target_[i]
+    cost += std::sqrt(dx * dx + dy * dy);*/
   }
   return cost;
 }
@@ -259,7 +263,7 @@ int main(int argc, char* argv[]) {
   double lr = 0.001;
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_real_distribution<> dis(-10.0, 10.0); // range: [0.0, 10.0)
+  std::uniform_real_distribution<> dis(-10, 10); // range: [0.0, 10.0)
   std::vector<double> t_force_x(300);
   std::vector<double> t_force_y(300);
   // init randomly the forces
@@ -270,7 +274,6 @@ int main(int argc, char* argv[]) {
 
   {
     auto start = high_resolution_clock::now();
-    //create variables to update
      //create variables to update
     std::vector<double> t_force_x_original = t_force_x; // TODO COPY ???
     std::vector<double> t_force_y_original = t_force_y;
@@ -280,9 +283,9 @@ int main(int argc, char* argv[]) {
     std::vector<double> t_force_grad_y(300);
 
     int iter = 0;
-    double limite = 5.0;
-    while (cost > limite) {
-      grad_finite(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps=steps);
+    double limite = 100;
+    while (cost > limite ) {
+      grad_finite(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps);
       printf("Iteration %02d - cost: %.3f \n", iter, cost);
       iter++;
       for (int i = 0; i < steps; ++i) {
@@ -294,9 +297,7 @@ int main(int argc, char* argv[]) {
     auto duration = duration_cast<microseconds>(stop - start);
     printf("Finite differences took %ld microseconds.", static_cast<long>(duration.count()));
     // do final render with optimized forces
-    //rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps,&app);
     cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
-    printf("actual cost %02d",  cost);
   }
   
    {
