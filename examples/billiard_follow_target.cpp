@@ -352,7 +352,7 @@ int main(int argc, char* argv[]) {
     std::vector<double> t_force_grad_x(300);
     std::vector<double> t_force_grad_y(300);
 
-    adam_optimizer(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps, 0.1, 0.9, 0.999, 1e-8, 50, 10000, &app);
+    adam_optimizer(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps, 0.1, 0.9, 0.999, 1e-8, 0.01, 10000, &app);
 
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
