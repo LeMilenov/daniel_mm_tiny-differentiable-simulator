@@ -94,9 +94,9 @@ typename Algebra::Scalar rollout(std::vector<double>& t_force_x,  std::vector<do
 
   //TARGET POSITION [3.5, 8, 0]
   // Vector3 target(Algebra::fraction(35, 10),Algebra::fraction(8, 1), Algebra::zero());
-  Vector3 target = Vector3::create(Algebra::zero(), -Algebra::two(), Algebra::zero());
-  // Create white ball (the ball we apply force to) at [0, 2, 0 ]
-  Vector3 white_position = Vector3::create(Algebra::zero(), -Algebra::two(), Algebra::zero());
+  Vector3 target = Vector3::create(Algebra::zero(), Algebra::zero(), Algebra::zero());
+  Vector3 white_position = Vector3::create(Algebra::zero(), Algebra::zero(), Algebra::zero());
+
   const TinyGeometry* white_geom = world.create_sphere(radius);
   TinyRigidBody* white_ball = world.create_rigid_body(mass, white_geom);
   white_ball->world_pose_.position_ = white_position;
@@ -220,25 +220,70 @@ void grad_finite(std::vector<double>& t_force_x, std::vector<double>& t_force_y,
   // Update cost with original forces
   *cost =  rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps);
 }
+void adam_optimizer(std::vector<double>& t_force_x,
+                    std::vector<double>& t_force_y, double* cost,
+                    std::vector<double>* grad_force_x,
+                    std::vector<double>* grad_force_y, int steps = 300,
+                    double lr = 0.01, double beta1 = 0.9, double beta2 = 0.999,
+                    double eps = 1e-8,
+                    double minCost = 50,
+                    int max_iterations = 10000, 
+                    TinyOpenGL3App* app = 0) {
+  std::vector<double> m_force_x(steps, 0.0);
+  std::vector<double> m_force_y(steps, 0.0);
+  std::vector<double> v_force_x(steps, 0.0);
+  std::vector<double> v_force_y(steps, 0.0);
+  int t = 0;
+  while (*cost > minCost && t < max_iterations) {
+    grad_finite(t_force_x, t_force_y, cost, grad_force_x, grad_force_y, steps);
+
+    for (int i = 0; i < steps; i++) {
+
+      m_force_x[i] = beta1 * m_force_x[i] + (1 - beta1) * (*grad_force_x)[i];
+      m_force_y[i] = beta1 * m_force_y[i] + (1 - beta1) * (*grad_force_y)[i];
+      v_force_x[i] = beta2 * v_force_x[i] +
+                     (1 - beta2) * (*grad_force_x)[i] * (*grad_force_x)[i];
+      v_force_y[i] = beta2 * v_force_y[i] +
+                     (1 - beta2) * (*grad_force_y)[i] * (*grad_force_y)[i];
+      double m_hat_force_x = m_force_x[i] / (1 - pow(beta1, t + 1));
+      double m_hat_force_y = m_force_y[i] / (1 - pow(beta1, t + 1));
+      double v_hat_force_x = v_force_x[i] / (1 - pow(beta2, t + 1));
+      double v_hat_force_y = v_force_y[i] / (1 - pow(beta2, t + 1));
+      (*grad_force_x)[i] = m_hat_force_x / (sqrt(v_hat_force_x) + eps);
+      (*grad_force_y)[i] = m_hat_force_y / (sqrt(v_hat_force_y) + eps);
+      t_force_x[i] -= lr * (*grad_force_x)[i];
+      t_force_y[i] -= lr * (*grad_force_y)[i];
+    }
+    printf("Iteration %02d - cost: %.3f \n", t, *cost);
+    if (app && t % 1000 == 0) {
+        rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps,app);
+    }
+    t++;   
+  }
+}
 
 // CE QU ON VX UTILISER (plus stable)
  //void grad_dual(std::vector<double>& t_force_x, std::vector<double>& t_force_y, double* cost, std::vector<double>* grad_force_x, std::vector<double>* grad_force_y, int steps = 300, double eps=1e-5 ) {
- //  typedef TinyDual<double> TinyDual;
- //  {
- //    TinyDual fx(t_force_x, 1.);
- //    TinyDual fy(t_force_y, 0.);
- //    //calculate rollout cost
- //    TinyDual c = rollout< TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
- //    *cost = c.real();
- //    *d_force_x = c.dual();
- //  }
- //  {
- //    TinyDual fx(force_x, 0.);
- //    TinyDual fy(force_y, 1.);
+ // 
+ //     typedef TinyDual<double> TinyDual;
 
- //    TinyDual c = rollout< TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
- //    *d_force_y = c.dual();
- //  }
+ //     // calculate rollout cost
+ //     TinyDual c = rollout<TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(t_force_x[0], t_force_y[0], steps);
+ //     *cost = c.real();
+
+ //     // Compute gradients with respect to t_force_x and t_force_y
+ //     for (int i = 0; i < steps; i++) {
+ //       TinyDual fx(t_force_x[i], 1.);
+ //       TinyDual fy(t_force_y[i], 0.);
+ //       TinyDual cx = rollout<TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
+
+ //       fx = TinyDual(t_force_x[i], 0.);
+ //       fy = TinyDual(t_force_y[i], 1.);
+ //       TinyDual cy = rollout<TinyAlgebra<TinyDual, TinyDualDoubleUtils>>(fx, fy, steps);
+
+ //       (*grad_force_x)[i] = cx.dual() / eps;
+ //       (*grad_force_y)[i] = cy.dual() / eps;
+ //     }
  //}
 
 int main(int argc, char* argv[]) {
@@ -260,7 +305,7 @@ int main(int argc, char* argv[]) {
   // init forces
   // double init_force_x = 0., init_force_y = 500.;
   int steps = 300;
-  double lr = 0.001;
+  double lr = 0.01;
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(-10, 10); // range: [0.0, 10.0)
@@ -270,67 +315,79 @@ int main(int argc, char* argv[]) {
   std::generate(t_force_x.begin(), t_force_x.end(), [&]() { return dis(gen); });
   std::generate(t_force_y.begin(), t_force_y.end(), [&]() { return dis(gen); });
   // init animation
-  rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
+  //rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
 
+  //{
+  //  auto start = high_resolution_clock::now();
+  //   //create variables to update
+  //  std::vector<double> t_force_x_original = t_force_x; // TODO COPY ???
+  //  std::vector<double> t_force_y_original = t_force_y;
+  //  double cost = 9999999;
+  //   // init gradients vectors
+  //  std::vector<double> t_force_grad_x(300);
+  //  std::vector<double> t_force_grad_y(300);
+
+  //  int iter = 0;
+  //  double limite = 50;
+  //  while (cost > limite && iter < 2000) {
+  //    grad_finite(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps);
+  //    printf("Iteration %02d - cost: %.3f \n", iter, cost);
+  //    iter++;
+  //    for (int i = 0; i < steps; ++i) {
+  //      t_force_x[i] -= lr * t_force_grad_x[i];
+  //      t_force_y[i] -= lr * t_force_grad_y[i];
+  //    }
+  //  }
+  //  auto stop = high_resolution_clock::now();
+  //  auto duration = duration_cast<microseconds>(stop - start);
+  //  printf("Finite differences took %ld microseconds.", static_cast<long>(duration.count()));
+  //  // do final render with optimized forces
+  //  cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
+  //}
   {
     auto start = high_resolution_clock::now();
-     //create variables to update
-    std::vector<double> t_force_x_original = t_force_x; // TODO COPY ???
-    std::vector<double> t_force_y_original = t_force_y;
+    // create variables to update
     double cost = 9999999;
-     // init gradients vectors
+    // init gradients vectors
     std::vector<double> t_force_grad_x(300);
     std::vector<double> t_force_grad_y(300);
 
-    int iter = 0;
-    double limite = 100;
-    while (cost > limite ) {
-      grad_finite(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps);
-      printf("Iteration %02d - cost: %.3f \n", iter, cost);
-      iter++;
-      for (int i = 0; i < steps; ++i) {
-        t_force_x[i] -= lr * t_force_grad_x[i];
-        t_force_y[i] -= lr * t_force_grad_y[i];
-      }
-    }
+    adam_optimizer(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps, 0.1, 0.9, 0.999, 1e-8, 0.01, 10000, &app);
+
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
-    printf("Finite differences took %ld microseconds.", static_cast<long>(duration.count()));
+    printf("Adam took %ld microseconds.", static_cast<long>(duration.count()));
     // do final render with optimized forces
-    cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
+    cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y,steps, &app);
   }
-  
-   {
-    // // DO same thing with grad_dual()
-    //auto start = high_resolution_clock::now();
-    //// create variables to update
-    //// create variables to update
-    //std::vector<double> t_force_x_original = t_force_x;  // TODO COPY ???
-    //std::vector<double> t_force_y_original = t_force_y;
-    //double cost = 9999999;
-    //// init gradients vectors
-    //std::vector<double> t_force_grad_x(300);
-    //std::vector<double> t_force_grad_y(300);
+   //{
+   // // // DO same thing with grad_dual()
+   // //auto start = high_resolution_clock::now();
+   // //// create variables to update
+   // std::vector<double> t_force_x_original = t_force_x;  // TODO COPY ???
+   // std::vector<double> t_force_y_original = t_force_y;
+   // double cost = 9999999;
+   // // init gradients vectors
+   // std::vector<double> t_force_grad_x(300);
+   // std::vector<double> t_force_grad_y(300);
 
-    //int iter = 0;
-    //double limite = 1.0;
-    //while (cost > limite) {
-    //  grad_dual(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps = steps);
-    //  printf("Iteration %02d - cost: %.3f \n", iter, cost);
-    //  iter++;
-    //  for (int i = 0; i < steps; ++i) {
-    //    t_force_x[i] -= lr * t_force_grad_x[i];
-    //    t_force_y[i] -= lr * t_force_grad_y[i];
-    //  }
-    //}
-    //auto stop = high_resolution_clock::now();
-    //auto duration = duration_cast<microseconds>(stop - start);
-    //printf("Finite differences took %ld microseconds.",
-    //       static_cast<long>(duration.count()));
-    //// do final render with optimized forces
-    //rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps,
-    //                                          &app);
-   }
+   // int iter = 0;
+   // double limite = 50.0;
+   // while (cost > limite) {
+   //   grad_dual(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps = steps);
+   //   printf("Iteration %02d - cost: %.3f \n", iter, cost);
+   //   iter++;
+   //   for (int i = 0; i < steps; ++i) {
+   //     t_force_x[i] -= lr * t_force_grad_x[i];
+   //     t_force_y[i] -= lr * t_force_grad_y[i];
+   //   }
+   // }
+   // auto stop = high_resolution_clock::now();
+   // auto duration = duration_cast<microseconds>(stop - start);
+   // printf("Finite differences took %ld microseconds.", static_cast<long>(duration.count()));
+   // // do final render with optimized forces
+   // rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
+   //}
   
   return 0;
 }
