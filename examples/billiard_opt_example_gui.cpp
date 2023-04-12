@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define GLOG_NO_ABBREVIATED_SEVERITIES
+
 #include <stdio.h>
 
 #include "assert.h"
