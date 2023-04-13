@@ -249,22 +249,18 @@ struct CeresFunctional {
   bool operator()(const T* const x, T* e) const {
     typedef ceres::Jet<double, 2> Jet;
     T fx(x[0]), fy(x[1]);
-    typedef std::conditional_t<std::is_same_v<T, double>, DoubleUtils,
-                               CeresUtils<2>>
-        Utils;
+    typedef std::conditional_t<std::is_same_v<T, double>, DoubleUtils, CeresUtils<2>> Utils;
     *e = rollout<TinyAlgebra<T, Utils> >(fx, fy, steps);
     return true;
   }
 };
 
 
-ceres::AutoDiffCostFunction<CeresFunctional, 1, 2> cost_function(
-    new CeresFunctional);
+ceres::AutoDiffCostFunction<CeresFunctional, 1, 2> cost_function(new CeresFunctional);
 double* parameters = new double[2];
 double* gradient = new double[2];
 
-void grad_ceres(double force_x, double force_y, double* cost, double* d_force_x,
-                double* d_force_y, int steps = 300) {
+void grad_ceres(double force_x, double force_y, double* cost, double* d_force_x,  double* d_force_y, int steps = 300) {
   parameters[0] = force_x;
   parameters[1] = force_y;
   double const* const* params = &parameters;
@@ -341,15 +337,13 @@ int main(int argc, char* argv[]) {
     double force_x = init_force_x, force_y = init_force_y;
     for (int iter = 0; iter < 50; ++iter) {
       grad_ceres(force_x, force_y, &cost, &d_force_x, &d_force_y, steps);
-      printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost,
-             force_x, force_y);
+      printf("Iteration %02d - cost: %.3f \tforce: [%.2f %2.f]\n", iter, cost, force_x, force_y);
       force_x -= learning_rate * d_force_x;
       force_y -= learning_rate * d_force_y;
     }
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
-    printf("Ceres Jet took %ld microseconds.",
-           static_cast<long>(duration.count()));
+    printf("Ceres Jet took %ld microseconds.", static_cast<long>(duration.count()));
     rollout<TinyAlgebra<double, DoubleUtils> >(force_x, force_y, steps, &app);
   }
 #endif //USE_CERES

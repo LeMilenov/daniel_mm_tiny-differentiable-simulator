@@ -40,7 +40,11 @@ using namespace tds;
 #include <chrono>  // std::chrono::seconds
 #include <thread>  // std::this_thread::sleep_for
 
+#ifdef USE_CERES
+#include <ceres/autodiff_cost_function.h>
 
+#include "math/tiny/ceres_utils.h"
+#endif  // USE_CERES
 
 #include "math/tiny/tiny_double_utils.h"
 #include "math/tiny/tiny_dual_double_utils.h"
@@ -306,15 +310,62 @@ void grad_dual(std::vector<double>& t_force_x, std::vector<double>& t_force_y, d
     }
 }
 
-void l_bfgs(std::vector<double>& t_force_x, std::vector<double>& t_force_y,
-               double* cost, std::vector<double>* grad_force_x,
-               std::vector<double>* grad_force_y, int steps = 300,
-               double lr = 0.1, double eps = 1e-8, double minCost = 50,
-               int max_iterations = 10000, double lambda = 0.01,
-               TinyOpenGL3App* app = 0) {
-
-    //TODO implement
-}
+//#ifdef USE_CERES
+//// Define the cost function as a CERES problem
+//struct MyCostFunction {
+//    int steps{300};
+//    const std::vector<double>& t_force_x;
+//    const std::vector<double>& t_force_y;
+//  template <typename T>
+//  bool operator()(const T* const x, T* e) const {
+//    typedef ceres::Jet<double, 2> Jet;
+//    // USE vectors of t instead of fx, fy
+//    //T fx(x[0]), fy(x[1]);
+//    typedef std::conditional_t<std::is_same_v<T, double>, DoubleUtils, CeresUtils<2>> Utils;
+//    *e = rollout<TinyAlgebra<T, Utils>>(t_force_x, t_force_y, steps);
+//    return true;
+//  }
+//};
+//ceres::AutoDiffCostFunction<MyCostFunction, 1, 2> cost_function(new MyCostFunction);
+//
+//void grad_lbfgs(std::vector<double>& t_force_x, std::vector<double>& t_force_y,
+//               double* cost, std::vector<double>* grad_force_x,
+//               std::vector<double>* grad_force_y, int steps = 300,
+//               double lr = 0.1, double eps = 1e-8, double minCost = 50,
+//               int max_iterations = 10000, double lambda = 0.01,
+//               TinyOpenGL3App* app = 0) {
+//    // not sure
+//  std::vector<double> x(2);
+//  x[0] = t_force_x[0];
+//  x[1] = t_force_y[0];
+//  ceres::GradientProblem problem( new ceres::AutoDiffCostFunction<MyCostFunction, 1, 2>( new MyCostFunction(t_force_x, t_force_y)));
+//
+//  ceres::LBFGSParam param;
+//  param.max_num_iterations = max_iterations;
+//
+//  ceres::LBFGSSolver solver(param);
+//
+//  ceres::GradientProblemSolver::Options options;
+//  options.line_search_direction_type = ceres::LBFGS;
+//  options.max_num_iterations = param.max_num_iterations;
+//  options.minimizer_progress_to_stdout = true;
+//  options.gradient_tolerance = eps;
+//  options.function_tolerance = eps;
+//
+//  ceres::GradientProblemSolver::Summary summary;
+//  solver.Solve(problem, x.data(), summary);
+//
+//  std::cout << summary.FullReport() << std::endl;
+//  std::cout << "Final x = " << x[0] << ", " << x[1] << std::endl;
+//
+//  *cost = summary.final_cost;
+//  grad_force_x->resize(steps);
+//  grad_force_y->resize(steps);
+//  TinyVector<double, 2> force(x[0], x[1]);
+//  rollout_gradient<TinyAlgebra<double>, TinyVector<double, 2>>(
+//      force, t_force_x, t_force_y, *grad_force_x, *grad_force_y, steps, app);
+//}
+//#endif  // USE_CERES
   int main(int argc, char* argv[]) {
 
   // using Vector3 = typename Algebra::Vector3;
@@ -399,37 +450,37 @@ void l_bfgs(std::vector<double>& t_force_x, std::vector<double>& t_force_y,
   //}
   
   // ******** Grad Dual
-  {
-    auto start = high_resolution_clock::now();
-     //create variables to update
-    std::vector<double> t_force_x_original = t_force_x; // TODO COPY ???
-    std::vector<double> t_force_y_original = t_force_y;
-    double cost = 9999999;
-     // init gradients vectors
-    std::vector<double> t_force_grad_x(300);
-    std::vector<double> t_force_grad_y(300);
-    int iter = 0;
-    double limite = 50;
-    while (cost > limite && iter < 5000) {
-      grad_dual(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps); 
-      printf("Iteration %02d - cost: %.3f \n", iter, cost); 
-      if (iter % 1000 == 0) {
-          // get a preview every 1000 iterations
-          rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
-      }
-      iter++; 
-      for (int i = 0; i < steps; ++i) {
-        t_force_x[i] -= lr * t_force_grad_x[i];
-        t_force_y[i] -= lr * t_force_grad_y[i];
-      }
-    }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop - start);
-    printf("Finite differences took %ld microseconds.",
-    static_cast<long>(duration.count()));
-    // do final render with optimized forces
-    cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
-  }
+  //{
+  //  auto start = high_resolution_clock::now();
+  //   //create variables to update
+  //  std::vector<double> t_force_x_original = t_force_x; // TODO COPY ???
+  //  std::vector<double> t_force_y_original = t_force_y;
+  //  double cost = 9999999;
+  //   // init gradients vectors
+  //  std::vector<double> t_force_grad_x(300);
+  //  std::vector<double> t_force_grad_y(300);
+  //  int iter = 0;
+  //  double limite = 50;
+  //  while (cost > limite && iter < 5000) {
+  //    grad_dual(t_force_x, t_force_y, &cost, &t_force_grad_x, &t_force_grad_y, steps); 
+  //    printf("Iteration %02d - cost: %.3f \n", iter, cost); 
+  //    if (iter % 1000 == 0) {
+  //        // get a preview every 1000 iterations
+  //        rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
+  //    }
+  //    iter++; 
+  //    for (int i = 0; i < steps; ++i) {
+  //      t_force_x[i] -= lr * t_force_grad_x[i];
+  //      t_force_y[i] -= lr * t_force_grad_y[i];
+  //    }
+  //  }
+  //  auto stop = high_resolution_clock::now();
+  //  auto duration = duration_cast<microseconds>(stop - start);
+  //  printf("Finite differences took %ld microseconds.",
+  //  static_cast<long>(duration.count()));
+  //  // do final render with optimized forces
+  //  cost = rollout<TinyAlgebra<double, DoubleUtils>>(t_force_x, t_force_y, steps, &app);
+  //}
 
   return 0;
 }
